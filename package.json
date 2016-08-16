@@ -1,0 +1,12 @@
+{
+  "name": "node_js_anti_sql_injection_proxy",
+  "version": "0.0.1",
+  "scripts": {
+    "test": "mocha"
+  },
+  "dependencies": {
+    "chai": "*",
+    "mocha": "*",
+    "supertest": "*"
+  }
+}
