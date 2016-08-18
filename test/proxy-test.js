@@ -15,7 +15,7 @@ describe("sql injection test cases", function() {
 
     it("safe get request test", function(done) {
         supertest(url)
-            .get("/test?username=tom&password=jones")
+            .get("/default?username=tom&password=jones")
             .expect(HTTP_SUCCESS_OK)
             .expect(HEADER_KEY_CONTENT, HEADER_VALUE_JSON)
             .end(function(error, response) {
@@ -30,7 +30,7 @@ describe("sql injection test cases", function() {
 
     it("unsafe get request test", function(done) {
         supertest(url)
-            .get("/test?username=tom&password=jonesbad")
+            .get("/default?username=tom&password=jonesbad")
             .expect(HTTP_SUCCESS_OK)
             .expect(HEADER_KEY_CONTENT, HEADER_VALUE_TEXT)
             .end(function(error, response) {

@@ -5,15 +5,13 @@ var HTTP_SUCCESS_OK = 200;
 var HEADER_KEY_CONTENT = 'Content-Type';
 var HEADER_VALUE_TEXT = 'text/html';
 
-var PROXY_PORT = 8080;
-
-var RAW_HOST = "localhost"; // demo6554356.mockable.io
-var RAW_PORT = 2000;
 var RAW_PATH = "/";
 
 var http = require('http');
 var querystring = require('querystring');
 var url = require('url');
+
+var config = require('./config');
 
 var server = http.createServer();
 
@@ -97,12 +95,12 @@ function handleRequest(proxiedRequest, proxiedResponse) {
 }
 
 function listeningCallback() {
-	console.log("listening on port " + PROXY_PORT);
+	console.log("listening on port " + config.proxy_port);
 }
 
 server.on('request', handleRequest);
 
-server.listen(PROXY_PORT, listeningCallback);
+server.listen(config.proxy_port, listeningCallback);
 
 
 function getProxiedRequestParams(proxiedRequest, requestBody) {
@@ -135,16 +133,25 @@ function getRawRequestOptions(proxiedRequest) {
 	if(proxiedRequest.url.substring(0, 1)=="/")
 		relativePath = relativePath.substring(1, relativePath.length);
 
+	// there are certain headers, namely "host", which we don't want to pass along as-is. the rest should pass through to the destination.
+	var passThruHeaders = {};
+	if(typeof proxiedRequest.headers != 'undefined' && proxiedRequest.headers != null) {
+		for(var headerName in proxiedRequest.headers) {
+			if(headerName != "host")
+				passThruHeaders.headerName = proxiedRequest.headers[headerName];
+		}
+	}
+
 	/* copy the request method, path+query params, and headers from the user's proxied request to our outbound request to the real destination. only the
 	   hostname and port will be different. it's worth noting that for POST/PUT, the Content-Length header must match the request body. so if we were to
 	   modify the request body at any point in our proxying, we'd have to update Content-Length as well.
 	*/
 	var requestOptions = {
-		"hostname": RAW_HOST,
-		"port": RAW_PORT,
+		"hostname": config.target_host,
+		"port": config.target_port,
 		"method": proxiedRequest.method,
 		"path": RAW_PATH + relativePath,
-		"headers": proxiedRequest.headers
+		"headers": passThruHeaders
 	}
 
 	return requestOptions;
