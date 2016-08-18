@@ -1,5 +1,7 @@
 
-var config = {}
+'use strict';
+
+var config = {};
 
 config.proxy_port = 8080;
 

@@ -1,17 +1,14 @@
 
 'use strict';
 
-var HTTP_SUCCESS_OK = 200;
-var HEADER_KEY_CONTENT = 'Content-Type';
-var HEADER_VALUE_TEXT = 'text/html';
-
 var RAW_PATH = "/";
 
 var http = require('http');
 var querystring = require('querystring');
 var url = require('url');
 
-var config = require('./config');
+var config = require('../config');
+var http_constants = require('../http-constants');
 
 var server = http.createServer();
 
@@ -79,8 +76,8 @@ function handleRequest(proxiedRequest, proxiedResponse) {
 
 		if (badStuffFound) {
 			console.log("bad stuff found!!");
-			proxiedResponse.statusCode = HTTP_SUCCESS_OK; // 200 is default, but being explicit
-			proxiedResponse.setHeader(HEADER_KEY_CONTENT, HEADER_VALUE_TEXT);
+			proxiedResponse.statusCode = http_constants.response_codes.HTTP_SUCCESS_OK; // 200 is default, but being explicit
+			proxiedResponse.setHeader(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_TEXT);
 			proxiedResponse.write("request rejected, SQL injection attempt suspected");
 			proxiedResponse.end(); // call proxiedResponse.end() to mark the proxiedResponse complete, sets proxiedResponse.finish to true
 		} else {
