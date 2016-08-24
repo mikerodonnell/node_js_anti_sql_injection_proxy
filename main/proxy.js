@@ -30,21 +30,22 @@ function handleRequest(proxiedRequest, proxiedResponse) {
 	function handleRequestEnd() {
 
 		var badStuffFound = false;
-		var realResponse = "initial real proxiedResponse";
 
 		function handleResponse(rawResponse) {
+
+			var targetResponse = "";
 
 			rawResponse.setEncoding('utf8');
 
 			rawResponse.on("data", function(data) {
-				realResponse = data; // TODO: test with big response that'll chunk data over several chunks. use += here?
+				targetResponse += data; // for each data event, append the incoming chunked response data
 			});
 
 			rawResponse.on('end', function() {
 				for(var headerKey in rawResponse.headers)
 					proxiedResponse.setHeader(headerKey, rawResponse.headers[headerKey]);
 
-				proxiedResponse.write(realResponse);
+				proxiedResponse.write(targetResponse);
 				proxiedResponse.end(); // call proxiedResponse.end() to mark the proxiedResponse complete, sets proxiedResponse.finish to true
 			});
 		}
