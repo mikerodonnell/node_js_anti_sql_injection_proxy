@@ -1,18 +1,17 @@
 
 'use strict';
 
-var RAW_PATH = "/";
-
+// Node JS imports
 var http = require('http');
 var querystring = require('querystring');
 var url = require('url');
 
+// local imports
 var config = require('../config');
 var http_constants = require('../http-constants');
+var patterns = require('./patterns');
 
 var server = http.createServer();
-
-var badStuff = "bad";
 
 // TODO: maintain same protocol (http https)
 // TODO: handle errors for unreachable host
@@ -68,21 +67,22 @@ function handleRequest(proxiedRequest, proxiedResponse) {
 		
 		for(var key in requestParams) {
 			var value = requestParams[key];
-			console.log("KVP: " + key + ", " + value);
-			if(value.indexOf(badStuff) > 0) {
-				console.log("found bad stuff in: " + value);
-				badStuffFound = true;
+
+			for(var index=0; index<patterns.length; index++) {
+				if(patterns[index].regex.test(value)) {
+					console.log("suspicious parameter identified: " + patterns[index].description);
+					badStuffFound = true;
+					break;
+				}
 			}
 		}
 
 		if (badStuffFound) {
-			console.log("bad stuff found!!");
 			proxiedResponse.statusCode = http_constants.response_codes.HTTP_SUCCESS_OK; // 200 is default, but being explicit
 			proxiedResponse.setHeader(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_TEXT);
 			proxiedResponse.write("request rejected, SQL injection attempt suspected");
 			proxiedResponse.end(); // call proxiedResponse.end() to mark the proxiedResponse complete, sets proxiedResponse.finish to true
 		} else {
-			console.log("no bad stuff found, proceeding with raw request");
 			handleRawRequest();
 		}
 	}
@@ -124,9 +124,6 @@ function getProxiedRequestParams(proxiedRequest, requestBody) {
 
 function getRawRequestOptions(proxiedRequest) {
 
-	//console.log("~~~~~~~~ proxiedRequest:")
-	//console.log(proxiedRequest);
-
 	var relativePath = proxiedRequest.url;
 	if(proxiedRequest.url.substring(0, 1)=="/")
 		relativePath = relativePath.substring(1, relativePath.length);
@@ -148,7 +145,7 @@ function getRawRequestOptions(proxiedRequest) {
 		"hostname": config.target_host,
 		"port": config.target_port,
 		"method": proxiedRequest.method,
-		"path": RAW_PATH + relativePath,
+		"path": "/" + relativePath,
 		"headers": passThruHeaders
 	}
 

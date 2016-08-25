@@ -9,7 +9,6 @@ var http_constants = require('../http-constants');
 
 var url = "http://localhost:" + config.proxy_port;
 
-// TODO: stub out a REST service here, verify that params passed to proxy actually get to final destination
 
 describe("sql injection test cases", function() {
 
@@ -28,9 +27,37 @@ describe("sql injection test cases", function() {
             });
     });
 
-    it("unsafe get request test", function(done) {
+    it("numeric equality expression", function(done) {
         supertest(url)
-            .get("/default?username=tom&password=jonesbad")
+            .get("/default?username=tom&password=jones' OR 1=1")
+            .expect(http_constants.response_codes.HTTP_SUCCESS_OK)
+            .expect(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_TEXT_REGEX)
+            .end(function(error, response) {
+                if (error) {
+                    throw error;
+                }
+                assert.equal(response.text, "request rejected, SQL injection attempt suspected");
+                done();
+            });
+    });
+
+    it("string equality exression", function(done) {
+        supertest(url)
+            .get("/default?username=tom&password=jones' OR 'test'='test'")
+            .expect(http_constants.response_codes.HTTP_SUCCESS_OK)
+            .expect(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_TEXT_REGEX)
+            .end(function(error, response) {
+                if (error) {
+                    throw error;
+                }
+                assert.equal(response.text, "request rejected, SQL injection attempt suspected");
+                done();
+            });
+    });
+
+    it("sql command", function(done) {
+        supertest(url)
+            .get("/default?username=tom&password=jones' DROP TABLES;")
             .expect(http_constants.response_codes.HTTP_SUCCESS_OK)
             .expect(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_TEXT_REGEX)
             .end(function(error, response) {
