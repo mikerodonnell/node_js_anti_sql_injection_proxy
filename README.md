@@ -1,5 +1,5 @@
 ##About
-A simple proxy that scans for SQL injection attacks and blocks suspicous requests. Have a vulnerable legacy application without resources or source to update it? Insert this proxy between your web server and your application.
+A simple proxy that scans for SQL injection attacks and blocks suspicious requests. Have a vulnerable legacy application without resources or source to update it? Insert this proxy between your web server and your application.
 
 ##Usage
 1. _prerequisites: [Node JS](https://nodejs.org) installed and on the system path_
