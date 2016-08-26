@@ -13,9 +13,6 @@ var patterns = require('./patterns');
 
 var server = http.createServer();
 
-// TODO: maintain same protocol (http https)
-// TODO: handle errors for unreachable host
-// TODO: handle errors for reachable host that doesnt respond to the method or relative path
 
 function handleRequest(proxiedRequest, proxiedResponse) {
 	console.log("handling request");
@@ -93,7 +90,7 @@ function handleRequest(proxiedRequest, proxiedResponse) {
 }
 
 function listeningCallback() {
-	console.log("listening on port " + config.proxy_port);
+	console.log("proxy started, listening on port " + config.proxy_port);
 }
 
 server.on('request', handleRequest);
