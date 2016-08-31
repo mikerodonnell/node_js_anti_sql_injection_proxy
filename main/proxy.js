@@ -25,8 +25,6 @@ function handleRequest(proxiedRequest, proxiedResponse) {
 
 	function handleRequestEnd() {
 
-		var badStuffFound = false;
-
 		function handleResponse(rawResponse) {
 
 			var targetResponse = "";
@@ -60,21 +58,7 @@ function handleRequest(proxiedRequest, proxiedResponse) {
 			request.end();
 		}
 
-		var requestParams = getProxiedRequestParams(proxiedRequest, requestBody);
-		
-		for(var key in requestParams) {
-			var value = requestParams[key];
-
-			for(var index=0; index<patterns.length; index++) {
-				if(patterns[index].regex.test(value)) {
-					console.log("suspicious parameter identified: " + patterns[index].description);
-					badStuffFound = true;
-					break;
-				}
-			}
-		}
-
-		if (badStuffFound) {
+		if ( scanParameters(getProxiedRequestParams(proxiedRequest, requestBody)) ) { // call getProxiedRequestParams() to get our request's params, and pass them along for scanning
 			proxiedResponse.statusCode = http_constants.response_codes.HTTP_SUCCESS_OK; // 200 is default, but being explicit
 			proxiedResponse.setHeader(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_TEXT);
 			proxiedResponse.write("request rejected, SQL injection attempt suspected");
@@ -147,4 +131,28 @@ function getRawRequestOptions(proxiedRequest) {
 	}
 
 	return requestOptions;
+}
+
+
+/**
+ * scan the given parameters object and return true if any parameter value contains suspicious SQL injection text. returns false or null or empty
+ * parameters.
+ *
+ * @param parameters
+ * @returns {boolean}
+ */
+function scanParameters(parameters) {
+
+	if(parameters!=null) {
+		for (var key in parameters) {
+			for (var index = 0; index < patterns.length; index++) {
+				if (patterns[index].regex.test( parameters[key] )) { // does this SQL injection regex match the value of this param?
+					console.log("suspicious parameter identified: " + patterns[index].description);
+					return true; // return, no need to scan rest of the parameters
+				}
+			}
+		}
+	}
+
+	return false;
 }
