@@ -82,40 +82,74 @@ server.on('request', handleRequest);
 server.listen(config.proxy_port, listeningCallback);
 
 
+/**
+ * gather all parameters from the request being proxied, both from the query string and the request body, into a single object. for example, given the query string:
+ * 		?username=rmarsh&password=beer
+ *
+ * and the request body:
+ * 		{
+ * 			"username": "randy.marsh",
+ * 			"firstName": "randy",
+ * 			"lastName": "marsh"
+ * 		}
+ *
+ * return:
+ *  {
+ *  	query.username: "rmarsh",
+ *  	query.password: "beer",
+ *  	body.username: "randy.marsh",
+ *  	body.firstName: "randy",
+ *  	body.lastName: "marsh"
+ *  }
+ *
+ * this ensures potential collisions between query string and request body are avoided, and callers get all parameters to scan as desired. it's not this function's concern
+ * that query string and request body are usually mutually exclusvie, or that request body on GET/DELETE/OPTIONS requests would likely be ignored by the server anyway;
+ * just return everything.
+ *
+ * @param proxiedRequest
+ * @param requestBody
+ * @returns {{}}
+ */
 function getProxiedRequestParams(proxiedRequest, requestBody) {
-	var requestMethod = proxiedRequest.method;
 
-	var requestParams = null;
+	var requestParams = {};
 
-	if(requestMethod === 'GET') {
-		var url_parts = url.parse(proxiedRequest.url, true);
-		requestParams = url_parts.query;
+	var url_parts = url.parse(proxiedRequest.url, true); // url#parse() breaks a URI string into an Object of individual parts, one of the parts being the query string
+	if(url_parts.query != null) { // a query string is only expected for GET, DELETE, and HEAD, but always process it if found
+		for(var key in url_parts.query) {
+			requestParams["query."+key] = url_parts.query[key];
+		}
 	}
-	else if(requestMethod === 'POST') {
-		requestParams = querystring.parse(requestBody);
-	}
-	else {
-		// TODO: other HTTP methods, and proper error handling
-		console.log("ERROR: unsupported HTTP method: " + requestMethod);
+
+	if(requestBody != null) { // a request body is only expected for POST and PUT, but always process it if found
+		var body = querystring.parse(requestBody);
+		for(var key in body) {
+			requestParams["body."+key] = body[key];
+		}
 	}
 
 	return requestParams;
 }
 
 
+/**
+ * given an incoming request being proxied, build a configuration options Object for the raw request that will be passed along to the server. for the most part this just
+ * involves copying over properties from the proxied request, with substitutions for host, port, and a few headers.
+ *
+ * @param proxiedRequest
+ * @returns {{hostname: string, port: number, method: (*|chainableBehavior.method|string|method|parserOnHeadersComplete.incoming.method|IncomingMessage.method), path: string, headers: {}}}
+ */
 function getRawRequestOptions(proxiedRequest) {
 
 	var relativePath = proxiedRequest.url;
 	if(proxiedRequest.url.substring(0, 1)=="/")
 		relativePath = relativePath.substring(1, relativePath.length);
 
-	// there are certain headers, namely "host", which we don't want to pass along as-is. the rest should pass through to the destination.
-	var passThruHeaders = {};
-	if(typeof proxiedRequest.headers != 'undefined' && proxiedRequest.headers != null) {
-		for(var headerName in proxiedRequest.headers) {
-			if(headerName != "host")
-				passThruHeaders.headerName = proxiedRequest.headers[headerName];
-		}
+	// there are certain headers, namely "host", which we don't want to pass along. the rest should pass through to the destination.
+	var rawRequestHeaders = {};
+	if(typeof proxiedRequest.headers != 'undefined' && proxiedRequest.headers != null) { // if the proxied request has any headers ...
+		rawRequestHeaders = Object.create(proxiedRequest.headers); // ... then copy all of them into our headers for our raw request ...
+		delete rawRequestHeaders.host; // ... except omit the "host" header from our raw request
 	}
 
 	/* copy the request method, path+query params, and headers from the user's proxied request to our outbound request to the real destination. only the
@@ -127,7 +161,7 @@ function getRawRequestOptions(proxiedRequest) {
 		"port": config.target_port,
 		"method": proxiedRequest.method,
 		"path": "/" + relativePath,
-		"headers": passThruHeaders
+		"headers": rawRequestHeaders
 	}
 
 	return requestOptions;
