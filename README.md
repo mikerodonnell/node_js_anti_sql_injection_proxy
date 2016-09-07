@@ -5,9 +5,9 @@ A simple proxy that scans for SQL injection attacks and blocks suspicious reques
 1. _prerequisites: [Node JS](https://nodejs.org) installed and on the system path_
 2. clone the repository: `git clone git@github.com:mikerodonnell/node_js_anti_sql_injection_proxy.git`
 3. edit config.js with your application base url, or any non-SSL website just to test. example: `config.target_host="http://www.xkcd.com"`
-4. from within the `node_js_anti_sql_injection_proxy/` directory, install dependencies: `npm install`
-5. still within `node_js_anti_sql_injection_proxy/` directory, start the proxy: `node main/proxy.js`
-6. still within `node_js_anti_sql_injection_proxy/`, run unit tests: `npm test`
+4. from within the `node_js_anti_sql_injection_proxy` directory, install dependencies: `npm install`
+5. still within `node_js_anti_sql_injection_proxy`, start the proxy: `node main/proxy.js`
+6. still within `node_js_anti_sql_injection_proxy`, run unit tests: `npm test`
 7. verify benign requests work through the proxy (default port is 8080): `http://localhost:8080`
 <img src="example/passthru.png" width="600" height="150" />
 8. verify suspicious requests are blocked: `http://localhost:8080?name=Robert') DROP TABLE students`
