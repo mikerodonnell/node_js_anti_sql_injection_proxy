@@ -26,4 +26,4 @@ A simple proxy that scans for SQL injection attacks and blocks suspicious reques
 ##TODO
 * SSL support
 * additional SQL injection patterns
-* error handling -- unreachable host, HTTP method not supported, etc.
+* error handling -- unreachable host, etc.
