@@ -1,0 +1,19 @@
+<html style="background-color: #D6EEF1; color: #494F6D; font-family: Arial, Sans-serif;">
+    <head>
+        <h2>Request blocked. SQL injection attempt suspected.</h2>
+    </head>
+    <body>
+        <table>
+            <tr>
+                <td>
+                    <span style="color: #D6EEF1; font-size: 600%; text-shadow: -2px -2px 0 red, 2px -2px 0 red, -2px 2px 0 red, 2px 2px 0 red;">!</span>
+                </td>
+
+                <td>
+                    Your request has been blocked because it includes suspicious SQL injection parameters.<br/>
+                    One or more params was flagged for containing: <span style="color: red"><%= description %></span>
+                </td>
+            </tr>
+        </table>
+    </body>
+</html>

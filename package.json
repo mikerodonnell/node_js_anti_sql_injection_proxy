@@ -6,6 +6,7 @@
   },
   "dependencies": {
     "chai": "*",
+    "ejs": "*",
     "mocha": "*",
     "supertest": "*"
   }

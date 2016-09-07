@@ -2,6 +2,8 @@
 'use strict';
 
 // Node JS imports
+var ejs = require("ejs");
+var fs = require("fs");
 var http = require('http');
 var querystring = require('querystring');
 var url = require('url');
@@ -58,13 +60,24 @@ function handleRequest(proxiedRequest, proxiedResponse) {
 			request.end();
 		}
 
-		if ( scanParameters(getProxiedRequestParams(proxiedRequest, requestBody)) ) { // call getProxiedRequestParams() to get our request's params, and pass them along for scanning
+		// call getProxiedRequestParams() to get our request's params, and pass them along for scanning
+		var blockedReason = scanParameters(getProxiedRequestParams(proxiedRequest, requestBody));
+		
+		if(blockedReason) { // scanParameters() returns a reason the request should be blocked, if any.
 			proxiedResponse.statusCode = http_constants.response_codes.HTTP_SUCCESS_OK; // 200 is default, but being explicit
-			proxiedResponse.setHeader(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_TEXT);
-			proxiedResponse.write("request rejected, SQL injection attempt suspected");
+
+			if(proxiedRequest.method == "GET") { // respond to blocked GET requests with HTML. presumably the request is from a browser, though no way to be sure.
+				proxiedResponse.setHeader(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_TEXT);
+				proxiedResponse.write(renderBlockedHTML(blockedReason)); // render our variables into the template and write the whole string as our response body
+			}
+			else { // respond to all other blocked requests with JSON. they're not originating from a browser.
+				proxiedResponse.setHeader(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_JSON);
+				proxiedResponse.write(renderBlockedJSON(blockedReason)); // render our variables into the template and write the whole string as our response body
+			}
+
 			proxiedResponse.end(); // call proxiedResponse.end() to mark the proxiedResponse complete, sets proxiedResponse.finish to true
 		} else {
-			handleRawRequest();
+			handleRawRequest();  // scanParameters() returns null for requests that have been verified benign
 		}
 	}
 	
@@ -169,11 +182,11 @@ function getRawRequestOptions(proxiedRequest) {
 
 
 /**
- * scan the given parameters object and return true if any parameter value contains suspicious SQL injection text. returns false or null or empty
- * parameters.
+ * scan the given parameters object. if any parameter value contains suspicious SQL injection text, return a description of the suspicous parameter. returns null otherwise, including
+ * null or empty parameters.
  *
  * @param parameters
- * @returns {boolean}
+ * @returns {boolean} a description of the suspicous parameter. ex.: "SQL command. (ex. DROP)"
  */
 function scanParameters(parameters) {
 
@@ -182,11 +195,45 @@ function scanParameters(parameters) {
 			for (var index = 0; index < patterns.length; index++) {
 				if (patterns[index].regex.test( parameters[key] )) { // does this SQL injection regex match the value of this param?
 					console.log("suspicious parameter identified: " + patterns[index].description);
-					return true; // return, no need to scan rest of the parameters
+					return patterns[index].description; // return, no need to scan rest of the parameters
 				}
 			}
 		}
 	}
 
-	return false;
+	return null;
+}
+
+
+/**
+ * Render the "request blocked" page with the given reason the request was deemed suspicous and thus blocked.
+ *
+ * @param description a string describing the reason the proxied request was blocked. ex.: "SQL command. (ex. DROP)"
+ * @returns {String} the full HTML of the "request blocked" as a string.
+ */
+function renderBlockedHTML(description) {
+	var template = fs.readFileSync(__dirname + "/view/index.html", "utf8");
+
+	var renderData = {
+		description: description
+	}
+
+	return ejs.render(template, renderData);
+}
+
+
+/**
+ * generate the JSON response body to respond to non-browser requests letting them know their request has been blocked. this returns the raw string containing
+ * JSON markup and is intended to be used with the "Content-Type: application/json" response header.
+ *
+ * @param description
+ * @returns {String} JSON string, ex.: '{"success":false,"message":"SQL command. (ex. DROP)"}'
+ */
+function renderBlockedJSON(description) {
+	var responseBody = {
+		success: false,
+		message: description
+	}
+
+	return JSON.stringify(responseBody);
 }
