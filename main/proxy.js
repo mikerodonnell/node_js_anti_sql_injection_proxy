@@ -53,6 +53,19 @@ function handleRequest(proxiedRequest, proxiedResponse) {
 
 			var request = http.request(requestOptions, handleResponse);
 
+			request.on('error', function(error) {
+				if (http_constants.error_codes.UNRESOLVED_HOST == error.code) {
+					// unknown host ... config.target_host in config.js is either wrong, or down
+					proxiedResponse.write("Could not resolve host: " + requestOptions.hostname);
+				}
+				else {
+					// we don't expect this to ever happen, throw generic message
+					proxiedResponse.write("unknown proxy error occurred.");
+				}
+
+				proxiedResponse.end(); // close our response to our caller now, nothing left to do.
+			});
+			
 			// copy the request body from the incoming user's request (proxied request) to our outgoing request to the real destination.
 			// the request body it separate from the requestOptions (method, url, protocol, etc), which are handled by getRawRequestOptions().
 			// request body is not applicable to GET requests, but doesn't hurt.
