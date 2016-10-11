@@ -118,6 +118,23 @@ describe("verify pass-thru of safe requests", function() {
 
 });
 
+describe("verify 400 and 500 errors", function() {
+
+    it("GET resource not found", function(done) {
+        supertest(proxyUrl)
+            .get("/someNonexistentEndpoint")
+            .expect(http_constants.response_codes.HTTP_SUCCESS_NOT_FOUND)
+            .end(function(error, response) {
+                if (error) {
+                    throw error;
+                }
+                // per the HTTP spec, 404 responses should contain a response body, but not required
+                done();
+            });
+    });
+
+});
+
 describe("verify basic injection is detected for all methods", function() {
 
     it("basic injection GET", function(done) {

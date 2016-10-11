@@ -5,6 +5,7 @@ var http_constants = {};
 
 var response_codes = {};
 response_codes.HTTP_SUCCESS_OK = 200;
+response_codes.HTTP_SUCCESS_NOT_FOUND = 404;
 
 var headers = {};
 headers.HEADER_KEY_CONTENT = 'Content-Type';

@@ -5,6 +5,7 @@
 var ejs = require("ejs");
 var fs = require("fs");
 var http = require('http');
+var https = require('https');
 var querystring = require('querystring');
 var url = require('url');
 
@@ -16,7 +17,7 @@ var patterns = require('./patterns');
 var server = http.createServer();
 
 
-function handleRequest(proxiedRequest, proxiedResponse) {
+function handleRequest(proxiedRequest, proxiedResponse) { // proxiedRequest is an instance of http.IncomingMessage; proxiedResponse is an instance of http.ServerResponse
 	console.log("handling request");
 	
 	var requestBody = "";
@@ -28,23 +29,15 @@ function handleRequest(proxiedRequest, proxiedResponse) {
 	function handleRequestEnd() {
 
 		function handleResponse(rawResponse) {
+			// first copy the headers, including the HTTP status code, from the raw response into proxied response to the end user
+			proxiedResponse.writeHead(rawResponse.statusCode, rawResponse.headers);
 
-			var targetResponse = "";
+			// now pipe the raw response body directly into the proxied response to the end user
+			rawResponse.pipe(proxiedResponse);
 
-			rawResponse.setEncoding('utf8');
-
-			rawResponse.on("data", function(data) {
-				targetResponse += data; // for each data event, append the incoming chunked response data
-			});
-
-			rawResponse.on('end', function() {
-				for(var headerKey in rawResponse.headers)
-					proxiedResponse.setHeader(headerKey, rawResponse.headers[headerKey]);
-
-				proxiedResponse.write(targetResponse);
-				proxiedResponse.end(); // call proxiedResponse.end() to mark the proxiedResponse complete, sets proxiedResponse.finish to true
-			});
+			// all done. we don't need to watch for rawResponse's 'end' event.
 		}
+
 		function handleRawRequest() {
 			var requestOptions = getRawRequestOptions(proxiedRequest);
 
@@ -60,6 +53,7 @@ function handleRequest(proxiedRequest, proxiedResponse) {
 				}
 				else {
 					// we don't expect this to ever happen, throw generic message
+					console.log(error);
 					proxiedResponse.write("unknown proxy error occurred.");
 				}
 
@@ -174,7 +168,8 @@ function getRawRequestOptions(proxiedRequest) {
 	// there are certain headers, namely "host", which we don't want to pass along. the rest should pass through to the destination.
 	var rawRequestHeaders = {};
 	if(typeof proxiedRequest.headers != 'undefined' && proxiedRequest.headers != null) { // if the proxied request has any headers ...
-		rawRequestHeaders = Object.create(proxiedRequest.headers); // ... then copy all of them into our headers for our raw request ...
+		// ... then copy all of them into our headers for our raw request. note that this only does a shallow copy.
+		rawRequestHeaders = Object.assign({}, proxiedRequest.headers);
 		delete rawRequestHeaders.host; // ... except omit the "host" header from our raw request
 	}
 
