@@ -41,10 +41,14 @@ function handleRequest(proxiedRequest, proxiedResponse) { // proxiedRequest is a
 		function handleRawRequest() {
 			var requestOptions = getRawRequestOptions(proxiedRequest);
 
-			console.log('firing request to: ');
+			console.log('firing ' + (requestOptions.port==443 ? 'SSL' : 'non-SSL') + ' request to: ');
 			console.log(requestOptions);
 
-			var request = http.request(requestOptions, handleResponse);
+			var request = null;
+			if (requestOptions.port == 443 || config.force_ssl) // use SSL if the target (raw) port is 443, OR if the user has set the force_ssl flag
+				request = https.request(requestOptions, handleResponse);
+			else // default to non-SSL
+				request = http.request(requestOptions, handleResponse);
 
 			request.on('error', function(error) {
 				if (http_constants.error_codes.UNRESOLVED_HOST == error.code) {
