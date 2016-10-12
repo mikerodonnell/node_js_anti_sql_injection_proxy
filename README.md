@@ -1,5 +1,5 @@
 ##about
-A simple proxy that scans for SQL injection attacks and blocks suspicious requests. Have a vulnerable legacy application without resources or source to update it? Insert this proxy between your web server and your application. All HTTP methods supported.
+A simple proxy that scans for SQL injection attacks and blocks suspicious requests. Have a vulnerable legacy application without the resources or source to update it? Insert this proxy between your web server and your application. All HTTP methods supported.
 
 ##usage
 1. _prerequisites: [Node JS](https://nodejs.org) installed and on the system path_
@@ -19,7 +19,7 @@ the default configuration (config.js) points to a mock endpoint for unit testing
 
 ##SSL
 SSL is supported between the proxy and the web application, and is transparent to the end user. traffic between the end user and the proxy is unencrypted (the proxy does not act as an SSL-enabled Node server).
-<img src="example/ssl.png" width="430" height="90" />
+<img src="example/ssl.png" width="574" height="119" />
 
 ##implementation notes
 * plain Node Javascript is used to keep things lightweight; no Express. the minimal view rendering needed is handled directly with EJS.
