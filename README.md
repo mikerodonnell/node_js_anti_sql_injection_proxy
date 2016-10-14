@@ -31,5 +31,5 @@ SSL is supported between the proxy and the web application, and is transparent t
 * [supertest](https://www.npmjs.com/package/supertest) _for REST testing_
 * [chai](http://chaijs.com) _for assertions_
 
-##TODO
-* additional SQL injection patterns
+##credit and further reading
+* [McCray, Joseph _Advanced SQL Injection_, DEFCON 17, 2011](https://www.youtube.com/watch?v=rdyQoUNeXSg)

@@ -212,6 +212,7 @@ describe("verify basic injection is detected for all methods", function() {
 });
 
 describe("verify more complex injection detection", function() {
+
     it("string equality exression", function(done) {
         supertest(proxyUrl)
             .get("/default?username=tom&password=jones' OR 'test'='test'")
@@ -226,7 +227,7 @@ describe("verify more complex injection detection", function() {
             });
     });
 
-    it("sql command", function(done) {
+    it("sql keyword", function(done) {
         supertest(proxyUrl)
             .get("/default?username=tom&password=jones' DROP TABLES;")
             .expect(http_constants.response_codes.HTTP_SUCCESS_OK)
@@ -236,6 +237,68 @@ describe("verify more complex injection detection", function() {
                     throw error;
                 }
                 assert.equal(response.text, ejs.render(template, {description: patterns[1].description}));
+                done();
+            });
+    });
+
+});
+
+describe("verify error-based injection is detected", function() {
+
+    // the attacker is trying to get MS SQL server to throw a syntax error like:
+    // "syntax error converting the nvarchar value 'admin_bob' to a column of data type int"
+    // which would propagate up to the view in a vulnerable webapp, allowing the attacker to see the database username
+    it("error message exposing database username (MS SQL)", function(done) {
+        supertest(proxyUrl)
+            .get("/default?username=tom' OR 1=convertint(int, USER)")
+            .expect(http_constants.response_codes.HTTP_SUCCESS_OK)
+            .expect(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_TEXT_REGEX)
+            .end(function(error, response) {
+                if (error) {
+                    throw error;
+                }
+                assert.equal(response.text, ejs.render(template, {description: patterns[3].description}));
+                done();
+            });
+    });
+
+    // although mysql always returns something (0, true/false, NULL, etc) rather than throw an error for invalid string casting or operations (even with strict mode),
+    // it's clear that the the attacker is trying to expose the username here. mysql isn't generall vulnerable to error-based injection.
+    it("error message exposing database username (mysql)", function(done) {
+        supertest(proxyUrl)
+            .get("/default?username=tom' OR CAST(CURRENT_USER() AS SIGNED INTEGER)")
+            .expect(http_constants.response_codes.HTTP_SUCCESS_OK)
+            .expect(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_TEXT_REGEX)
+            .end(function(error, response) {
+                if (error) {
+                    throw error;
+                }
+                assert.equal(response.text, ejs.render(template, {description: patterns[2].description}));
+                done();
+            });
+    });
+
+});
+
+describe("verify blind injection is detected", function() {
+
+    /* the attacker is attempting blind (trial and error) injection; they'll keep submitting requests like:
+         www.mysite.com/login?username=tom'; IF(LENGTH(CURRENT_USER)=1, SLEEP(5), true)
+         www.mysite.com/login?username=tom'; IF(LENGTH(CURRENT_USER)=2, SLEEP(5), true)
+         www.mysite.com/login?username=tom'; IF(LENGTH(CURRENT_USER)=3, SLEEP(5), true)
+
+       until the site takes 5 seconds to respond, then the attacker has found the length of the DB username.
+    */
+    it("error message exposing database username (MS SQL)", function(done) {
+        supertest(proxyUrl)
+            .get("/default?username=tom'; IF(LENGTH(CURRENT_USER)=1, SLEEP(5), true)")
+            .expect(http_constants.response_codes.HTTP_SUCCESS_OK)
+            .expect(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_TEXT_REGEX)
+            .end(function(error, response) {
+                if (error) {
+                    throw error;
+                }
+                assert.equal(response.text, ejs.render(template, {description: patterns[2].description}));
                 done();
             });
     });
