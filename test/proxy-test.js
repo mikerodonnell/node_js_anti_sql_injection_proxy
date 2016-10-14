@@ -123,12 +123,25 @@ describe("verify 400 and 500 errors", function() {
     it("GET resource not found", function(done) {
         supertest(proxyUrl)
             .get("/someNonexistentEndpoint")
-            .expect(http_constants.response_codes.HTTP_SUCCESS_NOT_FOUND)
-            .end(function(error, response) {
+            .expect(http_constants.response_codes.HTTP_NOT_FOUND)
+            .end(function(error) {
                 if (error) {
                     throw error;
                 }
                 // per the HTTP spec, 404 responses should contain a response body, but not required
+                done();
+            });
+    });
+
+    it("GET server error", function(done) {
+        supertest(proxyUrl)
+            .get("/server_error")
+            .expect(http_constants.response_codes.HTTP_INTERNAL_SERVER_ERROR)
+            .end(function(error, response) {
+                if (error) {
+                    throw error;
+                }
+                assert.notEqual(response.body, "");
                 done();
             });
     });
