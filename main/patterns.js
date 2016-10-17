@@ -9,7 +9,7 @@ var patterns = [
     },
     {
         // whitespace followed by a SQL command word, like DROP
-        "regex": /\s(SELECT|DROP|UPDATE|CREATE|INSERT|ALTER|UNION|MERGE)/i,
+        "regex": /\s(SELECT|DROP|UPDATE|CREATE|INSERT|ALTER|UNION|MERGE|LIKE)/i,
         "description": "SQL query keyword. (ex. DROP)"
     },
     {

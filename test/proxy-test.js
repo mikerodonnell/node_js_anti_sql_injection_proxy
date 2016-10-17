@@ -213,7 +213,7 @@ describe("verify basic injection is detected for all methods", function() {
 
 describe("verify more complex injection detection", function() {
 
-    it("string equality exression", function(done) {
+    it("string equality exression (= operator)", function(done) {
         supertest(proxyUrl)
             .get("/default?username=tom&password=jones' OR 'test'='test'")
             .expect(http_constants.response_codes.HTTP_SUCCESS_OK)
@@ -223,6 +223,20 @@ describe("verify more complex injection detection", function() {
                     throw error;
                 }
                 assert.equal(response.text, ejs.render(template, {description: patterns[0].description}));
+                done();
+            });
+    });
+
+    it("string equality exression (LIKE keyword)", function(done) {
+        supertest(proxyUrl)
+            .get("/default?username=tom&password=jones' OR 'test' LIKE 'test'")
+            .expect(http_constants.response_codes.HTTP_SUCCESS_OK)
+            .expect(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_TEXT_REGEX)
+            .end(function(error, response) {
+                if (error) {
+                    throw error;
+                }
+                assert.equal(response.text, ejs.render(template, {description: patterns[1].description}));
                 done();
             });
     });
@@ -283,15 +297,15 @@ describe("verify error-based injection is detected", function() {
 describe("verify blind injection is detected", function() {
 
     /* the attacker is attempting blind (trial and error) injection; they'll keep submitting requests like:
-         www.mysite.com/login?username=tom'; IF(LENGTH(CURRENT_USER)=1, SLEEP(5), true)
-         www.mysite.com/login?username=tom'; IF(LENGTH(CURRENT_USER)=2, SLEEP(5), true)
-         www.mysite.com/login?username=tom'; IF(LENGTH(CURRENT_USER)=3, SLEEP(5), true)
+        www.mysite.com/login?username=tom'; IF(LENGTH(CURRENT_USER)=1, SLEEP(5), false)
+        www.mysite.com/login?username=tom'; IF(LENGTH(CURRENT_USER)=2, SLEEP(5), false)
+        www.mysite.com/login?username=tom'; IF(LENGTH(CURRENT_USER)=3, SLEEP(5), false)
 
        until the site takes 5 seconds to respond, then the attacker has found the length of the DB username.
     */
-    it("error message exposing database username (MS SQL)", function(done) {
+    it("blind detection of DB property length (mysql)", function(done) {
         supertest(proxyUrl)
-            .get("/default?username=tom'; IF(LENGTH(CURRENT_USER)=1, SLEEP(5), true)")
+            .get("/default?username=tom'; IF(LENGTH(CURRENT_USER)=1, SLEEP(5), false)")
             .expect(http_constants.response_codes.HTTP_SUCCESS_OK)
             .expect(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_TEXT_REGEX)
             .end(function(error, response) {
@@ -299,6 +313,84 @@ describe("verify blind injection is detected", function() {
                     throw error;
                 }
                 assert.equal(response.text, ejs.render(template, {description: patterns[2].description}));
+                done();
+            });
+    });
+
+    it("blind detection of DB property length (MS SQL)", function(done) {
+        supertest(proxyUrl)
+            .get("/default?username=tom'; IF(LEN(USER)=1) WAITFOR DELAY '00:00:05'")
+            .expect(http_constants.response_codes.HTTP_SUCCESS_OK)
+            .expect(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_TEXT_REGEX)
+            .end(function(error, response) {
+                if (error) {
+                    throw error;
+                }
+                assert.equal(response.text, ejs.render(template, {description: patterns[3].description}));
+                done();
+            });
+    });
+
+    /* the attacker is attempting blind (trial and error) injection; they'll keep submitting requests like:
+        www.mysite.com/login?username=tom'; IF(SUBSTRING(CURRENT_USER(),1,1)='a', SLEEP(5), false)
+        www.mysite.com/login?username=tom'; IF(SUBSTRING(CURRENT_USER(),1,1)='b', SLEEP(5), false)
+        www.mysite.com/login?username=tom'; IF(SUBSTRING(CURRENT_USER(),1,1)='c', SLEEP(5), false)
+
+     until the site takes 5 seconds to respond, then the attacker has found the first character of the DB username, and will move onto the second.
+    */
+    it("blind detection of DB property value (mysql)", function(done) {
+        supertest(proxyUrl)
+            .get("/default?username=tom'; IF(SUBSTRING(CURRENT_USER(),1,1)='a', SLEEP(5), false)")
+            .expect(http_constants.response_codes.HTTP_SUCCESS_OK)
+            .expect(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_TEXT_REGEX)
+            .end(function(error, response) {
+                if (error) {
+                    throw error;
+                }
+                assert.equal(response.text, ejs.render(template, {description: patterns[2].description}));
+                done();
+            });
+    });
+
+    it("blind detection of DB property value (MS SQL)", function(done) {
+        supertest(proxyUrl)
+            .get("/default?username=tom'; IF(SUBSTRING(USER,1,1)='a') WAITFOR DELAY '00:00:05'")
+            .expect(http_constants.response_codes.HTTP_SUCCESS_OK)
+            .expect(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_TEXT_REGEX)
+            .end(function(error, response) {
+                if (error) {
+                    throw error;
+                }
+                assert.equal(response.text, ejs.render(template, {description: patterns[3].description}));
+                done();
+            });
+    });
+
+    // same as above, but with hex representations of characters.
+    it("blind detection of DB property value (hexadecimal) (mysql)", function(done) {
+        supertest(proxyUrl)
+            .get("/default?username=tom'; IF(SUBSTRING(CURRENT_USER(),1,1)=X'97', SLEEP(5), false)")
+            .expect(http_constants.response_codes.HTTP_SUCCESS_OK)
+            .expect(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_TEXT_REGEX)
+            .end(function(error, response) {
+                if (error) {
+                    throw error;
+                }
+                assert.equal(response.text, ejs.render(template, {description: patterns[2].description}));
+                done();
+            });
+    });
+
+    it("blind detection of DB property value (hexadecimal) (MS SQL)", function(done) {
+        supertest(proxyUrl)
+            .get("/default?username=tom'; IF(SUBSTRING(USER,1,1)=97) WAITFOR DELAY '00:00:05'")
+            .expect(http_constants.response_codes.HTTP_SUCCESS_OK)
+            .expect(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_TEXT_REGEX)
+            .end(function(error, response) {
+                if (error) {
+                    throw error;
+                }
+                assert.equal(response.text, ejs.render(template, {description: patterns[3].description}));
                 done();
             });
     });
