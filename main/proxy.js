@@ -1,23 +1,44 @@
 
-'use strict';
+"use strict";
 
 // Node JS imports
 var ejs = require("ejs");
 var fs = require("fs");
-var http = require('http');
-var https = require('https');
-var querystring = require('querystring');
-var url = require('url');
+var http = require("http");
+var https = require("https");
+var querystring = require("querystring");
+var url = require("url");
 
 // local imports
-var config = require('../config');
-var http_constants = require('../http-constants');
-var patterns = require('./patterns');
+var config = require("../config");
+var httpConstants = require("../http-constants");
+var patterns = require("./patterns");
 
+
+// initialize the Node server
 var server = http.createServer();
 
+// start the server, listening at localhost on the port configured in config.js
+server.listen(config.proxyPort, handleListening);
 
-function handleRequest(proxiedRequest, proxiedResponse) { // proxiedRequest is an instance of http.IncomingMessage; proxiedResponse is an instance of http.ServerResponse
+// any time the "request" event is emitted by the Node server, invoke our #handleRequest method
+server.on("request", handleRequest);
+
+
+/** callback invoked once when the proxy server starts up */
+function handleListening() {
+	console.log("proxy started, listening on port " + config.proxyPort);
+}
+
+
+/**
+ * callback invoked each time an HTTP request comes in to the proxy server
+ *
+ * @param proxiedRequest an instance of http.IncomingMessage. the request from the user to the proxy server (to localhost)
+ * @param proxiedResponse an instance of http.ServerResponse. the response from the proxy server to the user. this will either be the response passed along from the destination website/application,
+ * or, if SQL injection was detected, a response originating from the proxy saying the request was blocked.
+ */
+function handleRequest(proxiedRequest, proxiedResponse) {
 	console.log("handling request");
 	
 	var requestBody = "";
@@ -41,17 +62,17 @@ function handleRequest(proxiedRequest, proxiedResponse) { // proxiedRequest is a
 		function handleRawRequest() {
 			var requestOptions = getRawRequestOptions(proxiedRequest);
 
-			console.log('firing ' + (requestOptions.port==443 ? 'SSL' : 'non-SSL') + ' request to: ');
+			console.log("firing " + (requestOptions.port === 443 ? "SSL" : "non-SSL") + " request to: ");
 			console.log(requestOptions);
 
 			var request = null;
-			if (requestOptions.port == 443 || config.force_ssl) // use SSL if the target (raw) port is 443, OR if the user has set the force_ssl flag
+			if (requestOptions.port === 443 || config.forceSSL) // use SSL if the target (raw) port is 443, OR if the user has set the force_ssl flag
 				request = https.request(requestOptions, handleResponse);
 			else // default to non-SSL
 				request = http.request(requestOptions, handleResponse);
 
-			request.on('error', function(error) {
-				if (http_constants.error_codes.UNRESOLVED_HOST == error.code) {
+			request.on("error", function(error) {
+				if (httpConstants.errorCodes.UNRESOLVED_HOST === error.code) {
 					// unknown host ... config.target_host in config.js is either wrong, or down
 					proxiedResponse.write("Could not resolve host: " + requestOptions.hostname);
 				}
@@ -75,14 +96,14 @@ function handleRequest(proxiedRequest, proxiedResponse) { // proxiedRequest is a
 		var blockedReason = scanParameters(getProxiedRequestParams(proxiedRequest, requestBody));
 		
 		if(blockedReason) { // scanParameters() returns a reason the request should be blocked, if any.
-			proxiedResponse.statusCode = http_constants.response_codes.HTTP_SUCCESS_OK; // 200 is default, but being explicit
+			proxiedResponse.statusCode = httpConstants.responseCodes.HTTP_SUCCESS_OK; // 200 is default, but being explicit
 
-			if(proxiedRequest.method == "GET") { // respond to blocked GET requests with HTML. presumably the request is from a browser, though no way to be sure.
-				proxiedResponse.setHeader(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_TEXT);
+			if(proxiedRequest.method === "GET") { // respond to blocked GET requests with HTML. presumably the request is from a browser, though no way to be sure.
+				proxiedResponse.setHeader(httpConstants.headers.HEADER_KEY_CONTENT, httpConstants.headers.HEADER_VALUE_TEXT);
 				proxiedResponse.write(renderBlockedHTML(blockedReason)); // render our variables into the template and write the whole string as our response body
 			}
 			else { // respond to all other blocked requests with JSON. they're not originating from a browser.
-				proxiedResponse.setHeader(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_JSON);
+				proxiedResponse.setHeader(httpConstants.headers.HEADER_KEY_CONTENT, httpConstants.headers.HEADER_VALUE_JSON);
 				proxiedResponse.write(renderBlockedJSON(blockedReason)); // render our variables into the template and write the whole string as our response body
 			}
 
@@ -92,18 +113,10 @@ function handleRequest(proxiedRequest, proxiedResponse) { // proxiedRequest is a
 		}
 	}
 	
-	proxiedRequest.on('data', handleRequestData);
+	proxiedRequest.on("data", handleRequestData);
 	
-	proxiedRequest.on('end', handleRequestEnd);
+	proxiedRequest.on("end", handleRequestEnd);
 }
-
-function listeningCallback() {
-	console.log("proxy started, listening on port " + config.proxy_port);
-}
-
-server.on('request', handleRequest);
-
-server.listen(config.proxy_port, listeningCallback);
 
 
 /**
@@ -137,27 +150,30 @@ server.listen(config.proxy_port, listeningCallback);
 function getProxiedRequestParams(proxiedRequest, requestBody) {
 
 	var requestParams = {};
+	var key = "";
 
 	var urlParts = url.parse(proxiedRequest.url, true); // url#parse() breaks a URI string into an Object of individual parts, one of the parts being the query string
-	if(urlParts.query != null) { // a query string is only expected for GET, DELETE, and HEAD, but always process it if found
-		for(var key in urlParts.query) {
-			requestParams["query."+key] = urlParts.query[key];
+	if(urlParts.query !== null) { // a query string is only expected for GET, DELETE, and HEAD, but always process it if found
+		for(key in urlParts.query) {
+			if(urlParts.query.hasOwnProperty(key))
+				requestParams["query."+key] = urlParts.query[key];
 		}
 	}
 
-	if(requestBody != null) { // a request body is only expected for POST and PUT, but always process it if found
+	if(requestBody !== null) { // a request body is only expected for POST and PUT, but always process it if found
 		var body = querystring.parse(requestBody);
-		for(var key in body) {
-			requestParams["body."+key] = body[key];
+		for(key in body) {
+			if(body.hasOwnProperty(key))
+				requestParams["body."+key] = body[key];
 		}
 	}
 
 	// get URL attributes too, like /api/users/129, or /api/customers/7/users/129
 	var urlAttributes = urlParts.pathname.split("/");
-	for(var key in urlAttributes) {
+	for(var index=0; index<urlAttributes.length; index++) {
 		// since attributes aren't key value pairs, just values, the value of key here will be 0, 1, 2, etc. doesn't affect anything
-		if(urlAttributes[key].length > 0)
-			requestParams["pathname."+key] = decodeURIComponent(urlAttributes[key]); // example: pathname.1=129
+		if(urlAttributes[index].length > 0)
+			requestParams["pathname."+index] = decodeURIComponent(urlAttributes[index]); // example: pathname.1=129
 	}
 
 	return requestParams;
@@ -174,12 +190,12 @@ function getProxiedRequestParams(proxiedRequest, requestBody) {
 function getRawRequestOptions(proxiedRequest) {
 
 	var relativePath = proxiedRequest.url;
-	if(proxiedRequest.url.substring(0, 1)=="/")
+	if(proxiedRequest.url.substring(0, 1) === "/")
 		relativePath = relativePath.substring(1, relativePath.length);
 
 	// there are certain headers, namely "host", which we don't want to pass along. the rest should pass through to the destination.
 	var rawRequestHeaders = {};
-	if(typeof proxiedRequest.headers != 'undefined' && proxiedRequest.headers != null) { // if the proxied request has any headers ...
+	if(typeof proxiedRequest.headers !== "undefined" && proxiedRequest.headers !== null) { // if the proxied request has any headers ...
 		// ... then copy all of them into our headers for our raw request. note that this only does a shallow copy.
 		rawRequestHeaders = Object.assign({}, proxiedRequest.headers);
 		delete rawRequestHeaders.host; // ... except omit the "host" header from our raw request
@@ -190,12 +206,12 @@ function getRawRequestOptions(proxiedRequest) {
 	   modify the request body at any point in our proxying, we'd have to update Content-Length as well.
 	*/
 	var requestOptions = {
-		"hostname": config.target_host,
-		"port": config.target_port,
+		"hostname": config.targetHost,
+		"port": config.targetPort,
 		"method": proxiedRequest.method,
 		"path": "/" + relativePath,
 		"headers": rawRequestHeaders
-	}
+	};
 
 	return requestOptions;
 }
@@ -210,12 +226,14 @@ function getRawRequestOptions(proxiedRequest) {
  */
 function scanParameters(parameters) {
 
-	if(parameters!=null) {
-		for (var key in parameters) {
-			for (var index = 0; index < patterns.length; index++) {
-				if (patterns[index].regex.test( parameters[key] )) { // does this SQL injection regex match the value of this param?
-					console.log("suspicious parameter identified: " + patterns[index].description);
-					return patterns[index].description; // return, no need to scan rest of the parameters
+	if(parameters !== null) {
+		for(var key in parameters) {
+			if (parameters.hasOwnProperty(key)) {
+				for (var index = 0; index < patterns.length; index++) {
+					if (patterns[index].regex.test(parameters[key])) { // does this SQL injection regex match the value of this param?
+						console.log("suspicious parameter identified: " + patterns[index].description);
+						return patterns[index].description; // return, no need to scan rest of the parameters
+					}
 				}
 			}
 		}
@@ -236,7 +254,7 @@ function renderBlockedHTML(description) {
 
 	var renderData = {
 		description: description
-	}
+	};
 
 	return ejs.render(template, renderData);
 }
@@ -253,7 +271,7 @@ function renderBlockedJSON(description) {
 	var responseBody = {
 		success: false,
 		message: description
-	}
+	};
 
 	return JSON.stringify(responseBody);
 }
