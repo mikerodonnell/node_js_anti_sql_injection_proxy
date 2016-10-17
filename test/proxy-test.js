@@ -211,6 +211,38 @@ describe("verify basic injection is detected for all methods", function() {
     });
 });
 
+describe("verify injection is detected in request attributes", function() {
+
+    it("safe GET with attributes", function(done) {
+        supertest(proxyUrl)
+            .get("/customers/7/users/129")
+            .expect(http_constants.response_codes.HTTP_SUCCESS_OK)
+            .expect(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_JSON_REGEX)
+            .end(function(error, response) {
+                if (error) {
+                    throw error;
+                }
+                assert.notEqual(response.body, "");
+                done();
+            });
+    });
+
+    it("basic attribute injection GET", function(done) {
+        supertest(proxyUrl)
+            .get("/customers/7/users/; DROP TABLES;")
+            .expect(http_constants.response_codes.HTTP_SUCCESS_OK)
+            .expect(http_constants.headers.HEADER_KEY_CONTENT, http_constants.headers.HEADER_VALUE_TEXT_REGEX)
+            .end(function(error, response) {
+                if (error) {
+                    throw error;
+                }
+                assert.equal(response.text, ejs.render(template, {description: patterns[1].description}));
+                done();
+            });
+    });
+
+});
+
 describe("verify more complex injection detection", function() {
 
     it("string equality exression (= operator)", function(done) {

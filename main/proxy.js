@@ -138,10 +138,10 @@ function getProxiedRequestParams(proxiedRequest, requestBody) {
 
 	var requestParams = {};
 
-	var url_parts = url.parse(proxiedRequest.url, true); // url#parse() breaks a URI string into an Object of individual parts, one of the parts being the query string
-	if(url_parts.query != null) { // a query string is only expected for GET, DELETE, and HEAD, but always process it if found
-		for(var key in url_parts.query) {
-			requestParams["query."+key] = url_parts.query[key];
+	var urlParts = url.parse(proxiedRequest.url, true); // url#parse() breaks a URI string into an Object of individual parts, one of the parts being the query string
+	if(urlParts.query != null) { // a query string is only expected for GET, DELETE, and HEAD, but always process it if found
+		for(var key in urlParts.query) {
+			requestParams["query."+key] = urlParts.query[key];
 		}
 	}
 
@@ -150,6 +150,14 @@ function getProxiedRequestParams(proxiedRequest, requestBody) {
 		for(var key in body) {
 			requestParams["body."+key] = body[key];
 		}
+	}
+
+	// get URL attributes too, like /api/users/129, or /api/customers/7/users/129
+	var urlAttributes = urlParts.pathname.split("/");
+	for(var key in urlAttributes) {
+		// since attributes aren't key value pairs, just values, the value of key here will be 0, 1, 2, etc. doesn't affect anything
+		if(urlAttributes[key].length > 0)
+			requestParams["pathname."+key] = decodeURIComponent(urlAttributes[key]); // example: pathname.1=129
 	}
 
 	return requestParams;
